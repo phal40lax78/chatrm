@@ -1,0 +1,4 @@
+# The index and the tombstone log - built from this machine's own transcripts.
+# chat-index.csv holds absolute paths and every chat title on the box, so it is
+# private by nature and must never be published. It rebuilds itself in ~30s.
+data/
