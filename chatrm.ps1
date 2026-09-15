@@ -100,7 +100,15 @@ PICKING
   Enter deletes what is on screen, at once: no detail dump, no confirmation.
   Esc backs out. Two chats can share a title AND an age - only then does the
   line add the project and size, since nothing else would separate them.
-  Enter shows it in full, then:  delete permanently?   Yes   No   (Enter = Yes)
+
+  That is for a title you typed in full. Titles match on substring, so one hit
+  is not the same as the right hit - chatrm Haiku matched 'Haiku ChatGPT Opus
+  Astra'. Typing part of a title is a search, and a search must not delete, so:
+  Enter fills the match in the way Tab would rather than running, and pressing
+  it again deletes the title now on screen. Where no key handler can reach -
+  a script, -NoProfile, no VT - the same case asks
+    delete permanently?  y / Enter = yes,  n / Esc = no
+  -Force skips all of it, and an id never goes near this: an id is exact.
   chatclean uses a checkbox list (space toggle, a all) so ghosts go in one pass.
   Redraws use escape sequences: under VS Code's pseudo-console CursorPosition
   is accepted and ignored. No VT -> numbered list and a typed y/N.
@@ -1262,13 +1270,51 @@ function Format-ChatWalkRow {
     return $line + $c.Comment + $tail + $c.Reset
 }
 
+function Confirm-ChatOne {
+    # One match, and the words typed were only part of its title. Deleting on
+    # that alone is how 'chatrm Haiku' took 'Haiku ChatGPT Opus Astra' with no
+    # prompt at all. Show the whole title and make the answer deliberate.
+    param($Item, [string]$Needle)
+    $width = [Math]::Max(20, $Host.UI.RawUI.WindowSize.Width - 1)
+    Write-Host ''
+    Write-Host "  '$Needle' is part of this title, not all of it:" -ForegroundColor Yellow
+    Write-Host (Format-ChatWalkRow $Item 1 1 $width)
+
+    # No VT means no key loop, and a confirm that only works under VT would
+    # leave the weakest hosts deleting unprompted - the bug in a new costume.
+    if (-not (Test-ChatVT)) {
+        Write-Host ''
+        return ((Read-Host "  delete it permanently? (y/N)").Trim() -match '^(y|yes)$')
+    }
+
+    $esc = [char]27
+    return Invoke-ChatKeyLoop -Paint {
+        Write-Host "  delete permanently?  y / Enter = yes,  n / Esc = no$esc[K"
+        1
+    } -OnKey {
+        param($key)
+        switch ($key.Key) {
+            'Enter' { return @{ Value = $true } }
+            'Escape' { return @{ Value = $false } }
+        }
+        switch ($key.KeyChar) {
+            'y' { return @{ Value = $true } }
+            'Y' { return @{ Value = $true } }
+            'n' { return @{ Value = $false } }
+            'N' { return @{ Value = $false } }
+            'q' { return @{ Value = $false } }
+        }
+    }
+}
+
 function Select-ChatOne {
     # The same one-line walk Tab does, over the chats a title matched. Enter
     # takes the one on screen and deletes it, with nothing in between.
     param([object[]]$Items)
     $width = [Math]::Max(20, $Host.UI.RawUI.WindowSize.Width - 1)
     # one match still shows the line, so all three paths look alike - there is
-    # simply nothing to walk
+    # simply nothing to walk. The caller decides whether that one still needs
+    # confirming: an exact title does not, a fragment of one does.
     if ($Items.Count -eq 1) {
         Write-Host (Format-ChatWalkRow $Items[0] 1 1 $width)
         return $Items[0]
@@ -1393,9 +1439,17 @@ function chatrm {
     Delete a local AI chat transcript, permanently.
     .DESCRIPTION
     An id is unambiguous, so it deletes outright. A title can match several
-    chats, so those are listed and confirmed one by one. Tab fills in the whole
-    argument - title or id, quoted or not - from the index that chatfind keeps
-    warm; run chatindex to rebuild it.
+    chats, so those are listed and walked one by one.
+
+    Titles match on substring, so part of a title is a search, not a choice.
+    A single match found that way is shown in full and asked about before
+    anything goes - and at the prompt, Enter fills the title in the way Tab
+    would instead of running, so the whole of it is on screen before a second
+    Enter acts on it. A title typed in full deletes as it always did, and
+    -Force skips the asking entirely.
+
+    Tab fills in the whole argument - title or id, quoted or not - from the
+    index that chatfind keeps warm; run chatindex to rebuild it.
     Also removes what the transcript leaves behind - sidecars, file-history and
     session-env for Claude, chatEditingSessions for Copilot.
     .PARAMETER Target
@@ -1456,10 +1510,19 @@ function chatrm {
             return
         }
 
-        # one chat or several, the path is the same: the line, then Enter.
-        # Several only adds the walking. Enter deletes on the spot - no detail
-        # dump, no confirmation.
+        # Titles match on substring, so one hit does NOT mean the right hit:
+        # 'Haiku' matched 'Haiku ChatGPT Opus Astra' and, with a single match
+        # taken as consent, deleted it outright. Typing a whole title is a
+        # decision; typing a fragment is a search, and a search must not delete.
+        $exact = $matched.Count -eq 1 -and
+        $matched[0].Record.Title.Equals($needle, [StringComparison]::OrdinalIgnoreCase)
+
         $chosen = if ($Force) { $matched }
+        elseif ($matched.Count -eq 1 -and -not $exact) {
+            # the one guard that also covers scripts, -NoProfile and no-VT
+            # hosts, where no key handler exists to fill the title in first
+            if (Confirm-ChatOne $matched[0] $needle) { @($matched[0]) } else { @() }
+        }
         else {
             $one = Select-ChatOne $matched
             if ($one) { @($one) } else { @() }
@@ -1905,6 +1968,40 @@ function Test-ChatCycling {
     $script:ChatCycle -and $script:ChatCycle.Line -eq $Line
 }
 
+function Test-ChatPartialTarget {
+    # Is what was typed part of a title rather than all of it? Enter fills the
+    # match in instead of running when it is, so the whole title is on screen
+    # before anything acts on it. Every uncertain answer is $false: Enter then
+    # keeps its ordinary meaning, and chatrm's own confirm still stands behind.
+    param([string]$Line)
+    try {
+        $m = [regex]::Match($Line, '^\s*chatrm\s+')
+        if (-not $m.Success) { return $false }
+        $arg = ($Line.Substring($m.Length) -replace $script:ChatTailPattern, '').Trim()
+        if (-not $arg) { return $false }
+        # a switch means this is not a bare title, and -Force is a decision
+        # already made - neither should have Enter quietly do something else
+        if ($arg -match '(^|\s)-\w') { return $false }
+        $arg = $arg.Trim("'", '"').Trim()
+        if (-not $arg) { return $false }
+        # an id is exact by definition, and never scoped to a project
+        if ($arg -match '^[0-9a-fA-F]{6,}(-[0-9a-fA-F-]*)?$') { return $false }
+        if (-not (Test-Path -LiteralPath $script:ChatIndexPath)) { return $false }
+
+        $rows = @(Select-ChatInProject @(Get-ChatIndex | Where-Object { $_.Title -ne '(empty)' }))
+        if (-not $rows) { return $false }
+        # a title typed in full is a decision, however many others contain it
+        foreach ($r in $rows) {
+            if ($r.Title.Equals($arg, [StringComparison]::OrdinalIgnoreCase)) { return $false }
+        }
+        foreach ($r in $rows) {
+            if ($r.Title.IndexOf($arg, [StringComparison]::OrdinalIgnoreCase) -ge 0) { return $true }
+        }
+        return $false
+    }
+    catch { return $false }
+}
+
 function Start-ChatCycle {
     # begin a run from whatever has been typed after the command
     param([string]$Line)
@@ -2025,8 +2122,24 @@ if (-not $ChatNoKeyBindings -and (Get-Module PSReadLine -ListAvailable -EA Silen
                 $clean = $line -replace $script:ChatTailPattern, ''
                 if ($clean -ne $line) {
                     [Microsoft.PowerShell.PSConsoleReadLine]::Replace(0, $line.Length, $clean)
+                    $line = $clean
                 }
                 $script:ChatCycle = $null
+
+                # chatrm only, and only when the argument is part of a title
+                # rather than all of it: fill the title in the way Tab would and
+                # hold the line, so the whole thing is on screen before Enter
+                # can act on it. chatfind is a search and deletes nothing, so it
+                # runs as typed.
+                # never let this break Enter: a throw inside a key handler makes
+                # the key unusable, which would be far worse than the eager
+                # delete it exists to prevent
+                try {
+                    if ($line -match '^\s*chatrm\s' -and (Test-ChatPartialTarget $line)) {
+                        if (Start-ChatCycle $line) { return }
+                    }
+                }
+                catch {}
             }
             [Microsoft.PowerShell.PSConsoleReadLine]::AcceptLine()
         }

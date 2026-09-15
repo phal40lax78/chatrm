@@ -130,6 +130,25 @@ Shift+Tab/up for previous, Enter runs it, Ctrl+Space opens the full list.
 
 Opt out with `$ChatNoKeyBindings = $true` before the dot-source.
 
+## Deleting is permanent
+
+Titles match on **substring**, so part of a title is a search rather than a
+choice. `chatrm Haiku` matches a chat called *Haiku ChatGPT Opus Astra*, and one
+match is not the same as the right match.
+
+So a fragment never deletes on its own:
+
+- **Part of a title** — the match is filled in the way Tab would, and Enter has
+  to be pressed again on the full title. Where no key handler can reach — a
+  script, `-NoProfile`, no VT — it asks `delete permanently? y / Enter = yes`.
+- **A whole title** — deletes, as before. Typing all of it is the decision.
+- **An id** — deletes. An id is exact by definition.
+- **`-Force`** — skips all of the above.
+
+There is no recycle bin and no undo. `chatrm` removes the transcript and what it
+leaves behind: sidecars, `file-history` and `session-env` for Claude,
+`chatEditingSessions` for Copilot.
+
 ## Scope
 
 Titles match chats belonging to the directory you are standing in — Claude by its
