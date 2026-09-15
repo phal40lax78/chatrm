@@ -1931,7 +1931,11 @@ if ($MyInvocation.InvocationName -ne '.') {
     Write-Host ''
     Write-Host '  nothing was loaded - this file has to be dot-sourced' -ForegroundColor Yellow
     Write-Host '  a dot and a space in front of the path is the whole difference:' -ForegroundColor DarkGray
-    Write-Host "      . `"$PSCommandPath`"" -ForegroundColor Cyan
+    # iex has no file behind it, so PSCommandPath is empty there - printing
+    # . "" would be advice nobody can follow, and is how an empty dot-source
+    # line ends up pasted into a profile in the first place
+    $shown = if ($PSCommandPath) { $PSCommandPath } else { 'C:\path\to\chatrm.ps1' }
+    Write-Host "      . `"$shown`"" -ForegroundColor Cyan
     Write-Host '  then chatinstall, to have every new shell do it for you' -ForegroundColor DarkGray
     Write-Host ''
 }

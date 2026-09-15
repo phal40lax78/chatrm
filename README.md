@@ -11,27 +11,35 @@ One file. No modules, no dependencies, nothing to build.
 
 ## Install
 
-Paste this into PowerShell. It downloads the script, loads it, and wires it into
-your profile:
+```powershell
+iex (irm https://raw.githubusercontent.com/phal40lax78/chatrm/main/install.ps1)
+```
+
+Open a new terminal and type `chat`.
+
+That downloads `chatrm.ps1` to `~/Tools/chatrm`, loads it, and writes the line
+into your `$PROFILE`. Set `$env:CHATRM_DIR` first to put it somewhere else.
+
+The file has to reach disk — it is not run from memory. `chatrm.ps1` locates
+`data/` and the profile line from its own path, so with no file behind it both
+come out empty. `iex` is what makes the one-liner work: it runs in *your* scope,
+so the dot-source inside the installer lands the commands in the session you
+typed from.
+
+`~/Tools/chatrm` is a suggestion, not a requirement. Nothing reads the script's
+own location except `data/`, which sits beside it, so any folder you own works.
+Avoid `.claude`, `.codex` and `.vscode` — those belong to the tools named after
+them, which rewrite them on update and clear them on reinstall.
+
+If you would rather read before running, the installer is
+[install.ps1](install.ps1), and doing it by hand is four lines:
 
 ```powershell
 $dir = "$HOME\Tools\chatrm"
 New-Item $dir -ItemType Directory -Force | Out-Null
 Invoke-WebRequest https://raw.githubusercontent.com/phal40lax78/chatrm/main/chatrm.ps1 -OutFile "$dir\chatrm.ps1"
-. "$dir\chatrm.ps1"
-chatinstall
+. "$dir\chatrm.ps1"; chatinstall
 ```
-
-Open a new terminal and type `chat`.
-
-It downloads to a file rather than piping into `iex` on purpose. Piping would
-*run* the script instead of dot-sourcing it, which defines nothing — and the tool
-wants a real path on disk anyway, for `data/` and for the profile line.
-
-`$HOME\Tools\chatrm` is a suggestion, not a requirement: nothing reads the
-script's own location except `data/`, which sits beside it. Any folder you own
-works. Avoid `.claude`, `.codex` and `.vscode` — those belong to the tools named
-after them, which rewrite them on update and clear them on reinstall.
 
 ### Already have the file
 
