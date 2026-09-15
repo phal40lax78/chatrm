@@ -165,6 +165,13 @@ NOTES
   window goes on writing to a file no longer on disk.
 #>
 
+# Bump this in the same commit that changes behaviour - chatinstall compares it
+# against data/version.txt to say whether a reinstall actually landed anything,
+# and raw.githubusercontent.com serves a stale copy for minutes after a push, so
+# "updated" vs "unchanged" is the only way to tell a real upgrade from the CDN
+# handing back what you already had.
+$script:ChatVersion = '1.1.0'
+
 $script:ChatPreview = 3
 $script:ChatClaudeHome = if ($env:CLAUDE_CONFIG_DIR) { $env:CLAUDE_CONFIG_DIR } else { Join-Path $HOME '.claude' }
 $script:ChatCodexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $HOME '.codex' }
@@ -184,6 +191,9 @@ else { Join-Path $HOME '.config/Code/User' }
 $script:ChatWorkspaceNames = @{}
 $script:ChatIndexPath = Join-Path (Join-Path $PSScriptRoot 'data') 'chat-index.csv'
 $script:ChatTombPath = Join-Path (Join-Path $PSScriptRoot 'data') 'rewritten.txt'
+# what the last chatinstall put in the profile. The file gets overwritten by an
+# update, so its own version says what just landed and this says what it replaced.
+$script:ChatVersionPath = Join-Path (Join-Path $PSScriptRoot 'data') 'version.txt'
 
 #region index -----------------------------------------------------------------
 # Reading 2000+ transcripts takes ~30s, so nothing does it twice. The index
@@ -1542,6 +1552,18 @@ function chatrm {
 
 #region discoverability -------------------------------------------------------
 
+function Compare-ChatVersion {
+    # -1 A older, 0 same, 1 A newer, $null if either side will not parse.
+    # $null is not "equal" - a stamp written by hand, or by some future format,
+    # has to read as a change rather than silently as "unchanged".
+    param([string]$A, [string]$B)
+    $pa = $null
+    $pb = $null
+    if (-not [version]::TryParse($A, [ref]$pa)) { return $null }
+    if (-not [version]::TryParse($B, [ref]$pb)) { return $null }
+    return $pa.CompareTo($pb)
+}
+
 function chatinstall {
     <#
     .SYNOPSIS
@@ -1570,6 +1592,14 @@ function chatinstall {
     }
     # only Windows marks downloads; elsewhere the cmdlet does not exist at all
     if (Get-Command Unblock-File -EA SilentlyContinue) { Unblock-File -LiteralPath $me -EA SilentlyContinue }
+
+    # read before anything is written: data/ outlives the .ps1 an update
+    # overwrites, so this is the only trace of which copy was here before
+    $was = $null
+    if (Test-Path -LiteralPath $script:ChatVersionPath) {
+        $was = Get-Content -LiteralPath $script:ChatVersionPath -TotalCount 1 -EA SilentlyContinue
+        if ($was) { $was = $was.Trim() }
+    }
 
     $dir = Split-Path $PROFILE -Parent
     if ($dir -and -not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
@@ -1614,6 +1644,23 @@ function chatinstall {
         Write-Host '    every new shell picks it up from now on' -ForegroundColor DarkGray
     }
 
+    # Both branches print this. "installed" on its own cannot tell a real upgrade
+    # from the CDN handing back the copy you already had, which it does for
+    # minutes after a push - so say which of the two just happened.
+    if (-not $was) {
+        Write-Host "    version $script:ChatVersion" -ForegroundColor DarkGray
+    }
+    elseif ($was -eq $script:ChatVersion) {
+        Write-Host "    version $script:ChatVersion - unchanged" -ForegroundColor DarkGray
+    }
+    elseif ((Compare-ChatVersion $was $script:ChatVersion) -eq 1) {
+        Write-Host "    DOWNGRADED $was -> $script:ChatVersion" -ForegroundColor Yellow
+        Write-Host '    an older copy just overwrote a newer one' -ForegroundColor Yellow
+    }
+    else {
+        Write-Host "    updated $was -> $script:ChatVersion" -ForegroundColor Green
+    }
+
     # Either path, first install or reinstall. Tab reads the index and never
     # builds it - a keypress cannot afford 30s - so anything that removed data/
     # left nothing to complete from until some search happened to run.
@@ -1628,6 +1675,18 @@ function chatinstall {
             Write-Host '    could not build it - run chatindex when convenient' -ForegroundColor Yellow
         }
     }
+
+    # last, so a run that died earlier leaves the old stamp alone and the next
+    # one still reports the real delta rather than comparing against a version
+    # that never finished installing
+    try {
+        $vdir = Split-Path $script:ChatVersionPath -Parent
+        if ($vdir -and -not (Test-Path -LiteralPath $vdir)) {
+            New-Item -ItemType Directory -Path $vdir -Force | Out-Null
+        }
+        Set-Content -LiteralPath $script:ChatVersionPath -Value $script:ChatVersion -Encoding UTF8
+    }
+    catch {}
 }
 
 function chatuninstall {
@@ -1710,7 +1769,9 @@ function chat {
     Write-Host '  Tab fills in the argument: type any part of a title, no quotes needed'
     Write-Host '  -Provider claude|copilot|codex   -Deep   -All   -AllProjects   -Force'
     Write-Host '  Get-Help chatfind -Full           full help, examples and notes'
-    Write-Host "  $PSCommandPath"
+    Write-Host ''
+    Write-Host "  chatrm $script:ChatVersion" -ForegroundColor DarkGray
+    Write-Host "  $PSCommandPath" -ForegroundColor DarkGray
     Write-Host ''
 }
 

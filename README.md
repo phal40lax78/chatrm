@@ -76,6 +76,23 @@ It only ever runs after a dot-source, so the commands are already loaded in the
 shell you called it from. The profile line is for *future* shells; nothing needs
 reopening or closing to start using it now.
 
+### Updating
+
+Run the same one-liner again. It overwrites `chatrm.ps1` in place, leaves `data/`
+alone, and says which of the two actually happened:
+
+```
+updated 1.0.0 -> 1.1.0
+version 1.1.0 - unchanged
+```
+
+`unchanged` right after a push is usually the CDN, not a failed update —
+`raw.githubusercontent.com` serves the previous copy for a few minutes and a
+query string will not bust it. Wait, then run it again.
+
+`chat` prints the version it is running, at the bottom. A copy from before
+versions existed reports as a plain `version`, with nothing to compare against.
+
 ## Uninstall
 
 ```powershell
