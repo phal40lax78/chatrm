@@ -1519,36 +1519,41 @@ function chatinstall {
     # [ or ] would never match itself - appending a second line every run
     $here = @($mine | Where-Object { $_.IndexOf($me, [StringComparison]::OrdinalIgnoreCase) -ge 0 })
     if ($here -and -not $Force) {
+        # Deliberately not a return: a reinstall still has to reach the index
+        # check below. Bailing out here meant that deleting data/ and re-running
+        # the installer left Tab with nothing to complete from, which is the
+        # exact failure this was added to prevent.
         Write-Host '  already installed' -ForegroundColor DarkGray
         Write-Host "    $PROFILE" -ForegroundColor DarkGray
-        return
+        Write-Host '    the script itself was just overwritten with this copy' -ForegroundColor DarkGray
+    }
+    else {
+        # the whole file is rewritten to drop a stale line, so keep a copy: this
+        # is the user's profile and may hold plenty unrelated to us
+        if (Test-Path -LiteralPath $PROFILE) { Copy-Item -LiteralPath $PROFILE -Destination "$PROFILE.bak" -Force }
+        $kept = @($lines | Where-Object { $_ -notmatch '(chatrm|deleteLocalChat)\.ps1' })
+        $kept += ". `"$me`""
+        Set-Content -LiteralPath $PROFILE -Value $kept -Encoding UTF8
+
+        Write-Host '  installed' -ForegroundColor Green
+        Write-Host "    $PROFILE"
+        # only the lines that pointed somewhere else were really replaced - counting
+        # the current one too claimed "from an older location" on a plain -Force rerun
+        $stale = $mine.Count - $here.Count
+        if ($stale -gt 0) {
+            Write-Host "    replaced $stale line$(if ($stale -ne 1) { 's' }) from an older location" -ForegroundColor DarkGray
+        }
+        # Reaching this line means the file was dot-sourced - $PSCommandPath is
+        # empty otherwise and it returns above - so the commands are already
+        # defined right here. Saying "open a new terminal" sent people off to
+        # reopen a shell that was already working.
+        Write-Host '    ready in this shell - type chat' -ForegroundColor Green
+        Write-Host '    every new shell picks it up from now on' -ForegroundColor DarkGray
     }
 
-    # the whole file is rewritten to drop a stale line, so keep a copy: this is
-    # the user's profile and may hold plenty that has nothing to do with us
-    if (Test-Path -LiteralPath $PROFILE) { Copy-Item -LiteralPath $PROFILE -Destination "$PROFILE.bak" -Force }
-    $kept = @($lines | Where-Object { $_ -notmatch '(chatrm|deleteLocalChat)\.ps1' })
-    $kept += ". `"$me`""
-    Set-Content -LiteralPath $PROFILE -Value $kept -Encoding UTF8
-
-    Write-Host '  installed' -ForegroundColor Green
-    Write-Host "    $PROFILE"
-    # only the lines that pointed somewhere else were really replaced - counting
-    # the current one too claimed "from an older location" on a plain -Force rerun
-    $stale = $mine.Count - $here.Count
-    if ($stale -gt 0) {
-        Write-Host "    replaced $stale line$(if ($stale -ne 1) { 's' }) from an older location" -ForegroundColor DarkGray
-    }
-    # Reaching this line means the file was dot-sourced - $PSCommandPath is empty
-    # otherwise and it returns above - so the commands are already defined right
-    # here. Saying "open a new terminal" sent people off to reopen a shell that
-    # was already working, which is also why closing it looked necessary.
-    Write-Host '    ready in this shell - type chat' -ForegroundColor Green
-    Write-Host '    every new shell picks it up from now on' -ForegroundColor DarkGray
-
-    # Tab reads the index and never builds it - a keypress cannot afford 30s -
-    # so a fresh install had nothing to complete from until some search happened
-    # to run. Build it here, once, where a wait is expected and can be narrated.
+    # Either path, first install or reinstall. Tab reads the index and never
+    # builds it - a keypress cannot afford 30s - so anything that removed data/
+    # left nothing to complete from until some search happened to run.
     if (-not (Test-Path -LiteralPath $script:ChatIndexPath)) {
         Write-Host '    building the index for Tab completion (~30s)...' -ForegroundColor DarkGray
         # never let this fail the install - the index rebuilds on any search
