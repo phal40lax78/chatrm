@@ -11,27 +11,8 @@ One file. No modules, no dependencies, nothing to build.
 
 ## Install
 
-```powershell
-. "$HOME\Tools\chatrm\chatrm.ps1"
-chatinstall
-```
-
-Open a new terminal and type `chat`.
-
-To get that first line right without typing a path: type a dot and a space, then
-drag `chatrm.ps1` out of Explorer onto the window — or shift+right-click it
-there, **Copy as path**, and paste.
-
-The leading dot is not decoration. `. chatrm.ps1` loads the commands into the
-shell you are standing in; `& chatrm.ps1`, or double-clicking the file, runs it
-and throws every command away as it exits. The script detects that and tells you,
-so a shell is never left silently empty.
-
-`chatinstall` writes the line into `$PROFILE` itself — the script knows where it
-is, so the path is only ever typed once. Run it again after moving the file and
-it repoints the old line instead of leaving a dead one behind.
-
-### Install from this repo
+Paste this into PowerShell. It downloads the script, loads it, and wires it into
+your profile:
 
 ```powershell
 $dir = "$HOME\Tools\chatrm"
@@ -41,9 +22,40 @@ Invoke-WebRequest https://raw.githubusercontent.com/phal40lax78/chatrm/main/chat
 chatinstall
 ```
 
-Note it downloads to a file rather than piping into `iex`. Piping would *run*
-the script instead of dot-sourcing it, which defines nothing — and the tool needs
-a real path on disk anyway, for `data/` and for the profile line.
+Open a new terminal and type `chat`.
+
+It downloads to a file rather than piping into `iex` on purpose. Piping would
+*run* the script instead of dot-sourcing it, which defines nothing — and the tool
+wants a real path on disk anyway, for `data/` and for the profile line.
+
+`$HOME\Tools\chatrm` is a suggestion, not a requirement: nothing reads the
+script's own location except `data/`, which sits beside it. Any folder you own
+works. Avoid `.claude`, `.codex` and `.vscode` — those belong to the tools named
+after them, which rewrite them on update and clear them on reinstall.
+
+### Already have the file
+
+If `chatrm.ps1` is already on disk — you cloned the repo, or downloaded it by
+hand — skip the download and just load it:
+
+```powershell
+. "$HOME\Tools\chatrm\chatrm.ps1"
+chatinstall
+```
+
+To get that line right without typing a path: type a dot and a space, then drag
+`chatrm.ps1` out of Explorer onto the window — or shift+right-click it there,
+**Copy as path**, and paste. Point it at the `.ps1` itself, never the folder
+holding it; a folder gives *"The term '...' is not recognized"*.
+
+The leading dot is not decoration. `. chatrm.ps1` loads the commands into the
+shell you are standing in; `& chatrm.ps1`, or double-clicking the file, runs it
+and throws every command away as it exits. The script detects that and tells you,
+so a shell is never left silently empty.
+
+`chatinstall` writes the line into `$PROFILE` itself — the script knows where it
+is, so the path is only ever typed once. Run it again after moving the file and
+it repoints the old line instead of leaving a dead one behind.
 
 ## Commands
 
