@@ -65,6 +65,24 @@ so a shell is never left silently empty.
 is, so the path is only ever typed once. Run it again after moving the file and
 it repoints the old line instead of leaving a dead one behind.
 
+## Uninstall
+
+```powershell
+chatuninstall        # drop the line from $PROFILE, keep the folder
+chatuninstall -All   # and delete the folder, data/ included
+```
+
+It backs the profile up to `$PROFILE.bak` first and leaves every other line in
+it alone — an old `deleteLocalChat` line is caught too. Without `-All` it prints
+the `Remove-Item` for the folder so you can delete it whenever you like; the
+folder holds `data/`, which is the index and the delete tombstones.
+
+The commands stay defined in the shell you run it from. They are already in
+memory and nothing can unload them; close the window and they are gone.
+
+Nothing else is left behind. The tool never writes outside its own folder except
+for that one profile line — no registry keys, no AppData, no scheduled tasks.
+
 ## Commands
 
 | | |
@@ -75,6 +93,7 @@ it repoints the old line instead of leaving a dead one behind.
 | `chatproviders` | which tools were found, and where |
 | `chatindex` | rebuild the tab-completion index |
 | `chatinstall` | load these in every new shell |
+| `chatuninstall [-All]` | undo that; `-All` removes the folder too |
 | `chat` | cheat sheet |
 
 Flags: `-Deep` `-All` `-AllProjects` `-Force` `-Provider claude|copilot|codex`

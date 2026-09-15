@@ -53,6 +53,7 @@ COMMANDS
     chatrm "<title>" [-Force]      walk the matches, confirm; -Force takes all
     chatclean                      ghost chats (no messages, < 64 KB)
     chatproviders / chatindex      what was found / rebuild the index
+    chatinstall / chatuninstall    add to, or drop from, your profile
     chat                           cheat sheet
 
   chatfind emits objects:  chatfind commit | Select Provider,Title,Id,Age
@@ -1541,6 +1542,68 @@ function chatinstall {
     Write-Host '    open a new terminal, then type chat' -ForegroundColor DarkGray
 }
 
+function chatuninstall {
+    <#
+    .SYNOPSIS
+    Take the chat commands back out of your PowerShell profile.
+    .DESCRIPTION
+    Drops the dot-source line from $PROFILE, backing it up to $PROFILE.bak first,
+    and leaves everything else in that file alone. Matches the old filename too,
+    so a profile still carrying a deleteLocalChat line is cleaned as well.
+
+    The commands stay defined in the shell you run this from - they are already
+    in memory, and nothing can unload them. Close it and they are gone.
+
+    The folder is left on disk by default, data/ and all, since it holds the
+    index and the tombstones. -All deletes it too.
+    .PARAMETER All
+    Also delete the script's own folder, including data/.
+    .EXAMPLE
+    chatuninstall
+    .EXAMPLE
+    chatuninstall -All
+    #>
+    [CmdletBinding()]
+    param([switch]$All)
+
+    # a live watcher outlasts the file it was started for, so stop it first
+    Stop-ChatGhostWatch
+
+    $lines = if (Test-Path -LiteralPath $PROFILE) { @(Get-Content -LiteralPath $PROFILE) } else { @() }
+    $mine = @($lines | Where-Object { $_ -match '(chatrm|deleteLocalChat)\.ps1' })
+    if ($mine.Count) {
+        Copy-Item -LiteralPath $PROFILE -Destination "$PROFILE.bak" -Force
+        Set-Content -LiteralPath $PROFILE -Encoding UTF8 -Value `
+        @($lines | Where-Object { $_ -notmatch '(chatrm|deleteLocalChat)\.ps1' })
+        Write-Host "  removed $($mine.Count) line$(if ($mine.Count -ne 1) { 's' }) from the profile" -ForegroundColor Green
+        Write-Host "    $PROFILE" -ForegroundColor DarkGray
+        Write-Host "    backup: $PROFILE.bak" -ForegroundColor DarkGray
+    }
+    else {
+        Write-Host '  nothing in the profile to remove' -ForegroundColor DarkGray
+    }
+
+    $here = if ($PSCommandPath) { Split-Path $PSCommandPath -Parent } else { $null }
+    if ($All) {
+        if (-not $here) {
+            Write-Host '  cannot tell where this file is - delete the folder by hand' -ForegroundColor Yellow
+        }
+        else {
+            # the .ps1 is not held open once dot-sourced, so it can delete itself
+            Remove-Item -LiteralPath $here -Recurse -Force -EA SilentlyContinue
+            $gone = -not (Test-Path -LiteralPath $here)
+            Write-Host "  $(if ($gone) { 'deleted' } else { 'COULD NOT DELETE' })  $here" -ForegroundColor $(if ($gone) { 'Green' } else { 'Yellow' })
+            if (-not $gone) { Write-Host '    something in it is open elsewhere' -ForegroundColor DarkGray }
+        }
+    }
+    elseif ($here) {
+        Write-Host "  the folder is still there - delete it when you want to:" -ForegroundColor DarkGray
+        Write-Host "      Remove-Item -LiteralPath `"$here`" -Recurse -Force" -ForegroundColor Cyan
+    }
+
+    Write-Host '  these commands stay in this shell until you close it' -ForegroundColor DarkGray
+}
+
 function chat {
     <#
     .SYNOPSIS
@@ -1554,6 +1617,7 @@ function chat {
     Write-Host '  chatindex              rebuild the tab-completion index' -ForegroundColor Cyan
     Write-Host ''
     Write-Host '  chatinstall            load these in every new shell (once)' -ForegroundColor DarkGray
+    Write-Host '  chatuninstall [-All]   undo that; -All removes the folder too' -ForegroundColor DarkGray
     Write-Host ''
     Write-Host '  Tab fills in the argument: type any part of a title, no quotes needed'
     Write-Host '  -Provider claude|copilot|codex   -Deep   -All   -AllProjects   -Force'
