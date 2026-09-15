@@ -1545,6 +1545,21 @@ function chatinstall {
     # was already working, which is also why closing it looked necessary.
     Write-Host '    ready in this shell - type chat' -ForegroundColor Green
     Write-Host '    every new shell picks it up from now on' -ForegroundColor DarkGray
+
+    # Tab reads the index and never builds it - a keypress cannot afford 30s -
+    # so a fresh install had nothing to complete from until some search happened
+    # to run. Build it here, once, where a wait is expected and can be narrated.
+    if (-not (Test-Path -LiteralPath $script:ChatIndexPath)) {
+        Write-Host '    building the index for Tab completion (~30s)...' -ForegroundColor DarkGray
+        # never let this fail the install - the index rebuilds on any search
+        try {
+            $n = @(Sync-ChatIndex).Count
+            Write-Host "    indexed $n chat$(if ($n -ne 1) { 's' })" -ForegroundColor DarkGray
+        }
+        catch {
+            Write-Host '    could not build it - run chatindex when convenient' -ForegroundColor Yellow
+        }
+    }
 }
 
 function chatuninstall {
@@ -1753,8 +1768,13 @@ $script:ChatTitleCompleter = {
     $w = $word.Trim('"', "'")
     $rows = @(Get-ChatIndex | Where-Object { $_.Title -ne '(empty)' })   # abandoned sessions
     if (-not $rows) {
+        # Hand back what was typed, never ''. CompletionText REPLACES the word,
+        # so returning '' wiped the argument and left a bare pair of quotes on
+        # the line - it read as a broken completer rather than an empty index.
+        # Echoing the word leaves the line alone; the hint rides in the tooltip.
         return [System.Management.Automation.CompletionResult]::new(
-            "''", 'run chatindex first', 'ParameterValue', 'No index yet - run chatindex or any chatfind')
+            $word, 'no index yet - run chatindex', 'ParameterValue',
+            'No index yet - run chatindex once (~30s), or any chatfind')
     }
 
     # hex looks like an id, anything else looks like a title
@@ -1892,6 +1912,13 @@ function Start-ChatCycle {
     $arg = ($arg -replace $script:ChatTailPattern, '').Trim().Trim("'", '"').Trim()
     if ($arg.StartsWith('-')) { return $false }        # a parameter, not a title
     $byId = $false
+    # an absent index is not the same as no match, and silence made the two look
+    # identical - the caller says so rather than leaving Tab looking broken
+    if (-not (Test-Path -LiteralPath $script:ChatIndexPath)) {
+        $script:ChatNoIndex = $true
+        return $false
+    }
+    $script:ChatNoIndex = $false
     $rows = @(Get-ChatCycleRows $arg ([ref]$byId))
     if (-not $rows) { return $false }
     $script:ChatCycle = @{
@@ -1941,6 +1968,20 @@ if (-not $ChatNoKeyBindings -and (Get-Module PSReadLine -ListAvailable -EA Silen
             if (Test-ChatCycling $line) { Set-ChatCycleLine 1; return }
             $script:ChatCycle = $null
             if (-not (Start-ChatCycle $line)) {
+                # No index at all is worth saying out loud. Falling through to
+                # TabCompleteNext here is what put a bare '' on the line and made
+                # an empty index look like a broken completer.
+                if ($script:ChatNoIndex) {
+                    try {
+                        [Microsoft.PowerShell.PSConsoleReadLine]::AddToHistory($null)
+                    }
+                    catch {}
+                    Write-Host ''
+                    Write-Host '  no index yet - run chatindex once (~30s)' -ForegroundColor Yellow
+                    # redraw, or the line is left sitting under what was printed
+                    try { [Microsoft.PowerShell.PSConsoleReadLine]::InvokePrompt() } catch {}
+                    return
+                }
                 [Microsoft.PowerShell.PSConsoleReadLine]::TabCompleteNext()
             }
         }

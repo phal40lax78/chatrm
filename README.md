@@ -18,6 +18,11 @@ iex (irm https://raw.githubusercontent.com/phal40lax78/chatrm/main/install.ps1)
 Then type `chat`. No need to reopen anything — the commands are live in the
 shell you just ran that in.
 
+The install builds the search index on the way through, which takes about 30
+seconds and is what Tab completion reads. If you ever delete `data/`, run
+`chatindex` once to rebuild it — Tab reads that index and never builds it,
+because a keypress cannot sit for 30 seconds.
+
 That downloads `chatrm.ps1` to `~/Tools/chatrm`, loads it, and writes the line
 into your `$PROFILE`, so every future shell picks it up too. Set
 `$env:CHATRM_DIR` first to put it somewhere else.
