@@ -1539,7 +1539,12 @@ function chatinstall {
     if ($stale -gt 0) {
         Write-Host "    replaced $stale line$(if ($stale -ne 1) { 's' }) from an older location" -ForegroundColor DarkGray
     }
-    Write-Host '    open a new terminal, then type chat' -ForegroundColor DarkGray
+    # Reaching this line means the file was dot-sourced - $PSCommandPath is empty
+    # otherwise and it returns above - so the commands are already defined right
+    # here. Saying "open a new terminal" sent people off to reopen a shell that
+    # was already working, which is also why closing it looked necessary.
+    Write-Host '    ready in this shell - type chat' -ForegroundColor Green
+    Write-Host '    every new shell picks it up from now on' -ForegroundColor DarkGray
 }
 
 function chatuninstall {

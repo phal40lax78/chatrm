@@ -15,10 +15,12 @@ One file. No modules, no dependencies, nothing to build.
 iex (irm https://raw.githubusercontent.com/phal40lax78/chatrm/main/install.ps1)
 ```
 
-Open a new terminal and type `chat`.
+Then type `chat`. No need to reopen anything — the commands are live in the
+shell you just ran that in.
 
 That downloads `chatrm.ps1` to `~/Tools/chatrm`, loads it, and writes the line
-into your `$PROFILE`. Set `$env:CHATRM_DIR` first to put it somewhere else.
+into your `$PROFILE`, so every future shell picks it up too. Set
+`$env:CHATRM_DIR` first to put it somewhere else.
 
 The file has to reach disk — it is not run from memory. `chatrm.ps1` locates
 `data/` and the profile line from its own path, so with no file behind it both
@@ -64,6 +66,10 @@ so a shell is never left silently empty.
 `chatinstall` writes the line into `$PROFILE` itself — the script knows where it
 is, so the path is only ever typed once. Run it again after moving the file and
 it repoints the old line instead of leaving a dead one behind.
+
+It only ever runs after a dot-source, so the commands are already loaded in the
+shell you called it from. The profile line is for *future* shells; nothing needs
+reopening or closing to start using it now.
 
 ## Uninstall
 
