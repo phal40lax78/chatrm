@@ -9,6 +9,42 @@ hides a chat from the list. This deletes one chat, whichever tool wrote it.
 
 One file. No modules, no dependencies, nothing to build.
 
+## Demo
+
+Type any part of a title — no quotes, no id, no exact spelling:
+
+![The prompt reading "chatrm Astr", beside the VS Code chat panel listing a session named "Astra Haiku Sonnet Claude Opus ChatGPT Fable"](docs/demo-1-type.jpg)
+
+<img src="docs/key-tab.png" alt="The Tab key" width="80">
+
+Tab fills in the whole argument — quoted for you, with the chat's age and which
+match it is. `(7m)` is seven minutes since it was last touched, `#1/1` the only
+chat that matched:
+
+![The same prompt, now reading "chatrm 'Astra Haiku Sonnet Claude Opus ChatGPT Fable' (7m) #1/1"](docs/demo-2-tab.jpg)
+
+<img src="docs/key-enter.png" alt="The Enter key" width="120">
+
+Enter deletes it:
+
+![The chat reported deleted, followed by a note that the session list is cached and needs a window reload](docs/demo-3-deleted.jpg)
+
+The panel on the right still lists the chat, and that is expected rather than a
+failure — VS Code caches the session list and only rereads it on a window
+reload: **Ctrl+Shift+P**, then **Developer: Reload Window**. The transcript is
+already gone. The empty stub the reload writes back gets taken away again for
+you, and `chatclean` sweeps any that slip past.
+
+After that reload, it is gone from the panel too:
+
+![The VS Code session list after a window reload, no longer listing the deleted chat](docs/demo-4-reloaded.jpg)
+
+*Cropped to the top of the list.*
+
+Pressing <kbd>Enter</kbd> on `chatrm Astr` instead of <kbd>Tab</kbd> would have
+filled the title in rather than deleting anything — a fragment is a search, not a
+choice. See [Deleting is permanent](#deleting-is-permanent).
+
 ## Install
 
 ```powershell
