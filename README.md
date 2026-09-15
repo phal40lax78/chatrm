@@ -11,21 +11,17 @@ One file. No modules, no dependencies, nothing to build.
 
 ## Demo
 
-Type any part of a title — no quotes, no id, no exact spelling:
+Type any part of a title — no quotes, no id, no exact spelling — then press Tab:
 
-![The prompt reading "chatrm Astr", beside the VS Code chat panel listing a session named "Astra Haiku Sonnet Claude Opus ChatGPT Fable"](docs/demo-1-type.jpg)
-
-<img src="docs/key-tab.png" alt="The Tab key" width="80">
+![The prompt reading "chatrm Astr", with the Tab key drawn over the empty terminal below it, beside the VS Code chat panel listing a session named "Astra Haiku Sonnet Claude Opus ChatGPT Fable"](docs/demo-1-type.jpg)
 
 Tab fills in the whole argument — quoted for you, with the chat's age and which
 match it is. `(7m)` is seven minutes since it was last touched, `#1/1` the only
-chat that matched:
+chat that matched. Then press Enter:
 
-![The same prompt, now reading "chatrm 'Astra Haiku Sonnet Claude Opus ChatGPT Fable' (7m) #1/1"](docs/demo-2-tab.jpg)
+![The same prompt, now reading "chatrm 'Astra Haiku Sonnet Claude Opus ChatGPT Fable' (7m) #1/1", with the Enter key drawn over the empty terminal below it](docs/demo-2-tab.jpg)
 
-<img src="docs/key-enter.png" alt="The Enter key" width="120">
-
-Enter deletes it:
+Deleted:
 
 ![The chat reported deleted, followed by a note that the session list is cached and needs a window reload](docs/demo-3-deleted.jpg)
 
